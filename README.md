@@ -214,6 +214,33 @@ RKE will ask some questions around the cluster file like number of the hosts, ip
 # chown <user> /var/run/docker.sock
 ```
 
+## Ingress Controller
+
+RKE will deploy Nginx controller by default, user can disable this by specifying `none` to `ingress` option in the cluster configuration, user also can specify list of options fo nginx config map listed in this [docs](https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/configmap.md), for example:
+```
+ingress:
+  type: nginx
+  options:
+    map-hash-bucket-size: "128"
+    ssl-protocols: SSLv2
+```
+RKE will deploy ingress controller on all schedulable nodes (controlplane and workers), to specify only certain nodes for ingress controller to be deployed user has to specify `node_selector` for the ingress and the right label on the node, for example:
+```
+nodes:
+  - address: 1.1.1.1
+    role: [controlplane,worker,etcd]
+    user: root
+    labels:
+      app: ingress
+
+ingress:
+  type: nginx
+  node_selector:
+    app: ingress
+```
+
+RKE will deploy Nginx Ingress controller as a DaemonSet with `hostnetwork: true`, so ports `80`, and `443` will be opened on each node where the controller is deployed.
+
 ## License
 
 Copyright (c) 2017 [Rancher Labs, Inc.](http://rancher.com)
