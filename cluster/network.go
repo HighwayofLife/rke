@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/rke/pki"
 	"github.com/rancher/rke/services"
 	"github.com/rancher/rke/templates"
+	"github.com/rancher/types/apis/management.cattle.io/v3"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/util/cert"
@@ -343,7 +344,7 @@ func (c *Cluster) deployListenerOnPlane(ctx context.Context, portList []string, 
 }
 func (c *Cluster) deployListener(ctx context.Context, host *hosts.Host, portList []string, containerName string) error {
 	imageCfg := &container.Config{
-		Image: c.SystemImages[AplineImage],
+		Image: c.SystemImages.Alpine,
 		Cmd: []string{
 			"nc",
 			"-kl",
@@ -363,7 +364,7 @@ func (c *Cluster) deployListener(ctx context.Context, host *hosts.Host, portList
 	}
 
 	logrus.Debugf("[network] Starting deployListener [%s] on host [%s]", containerName, host.Address)
-	if err := docker.DoRunContainer(ctx, host.DClient, imageCfg, hostCfg, containerName, host.Address, "network"); err != nil {
+	if err := docker.DoRunContainer(ctx, host.DClient, imageCfg, hostCfg, containerName, host.Address, "network", c.PrivateRegistriesMap); err != nil {
 		if strings.Contains(err.Error(), "bind: address already in use") {
 			logrus.Debugf("[network] Service is already up on host [%s]", host.Address)
 			return nil
@@ -412,7 +413,7 @@ func (c *Cluster) runServicePortChecks(ctx context.Context) error {
 		for _, host := range c.EtcdHosts {
 			runHost := host
 			errgrp.Go(func() error {
-				return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages[AplineImage])
+				return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages.Alpine, c.PrivateRegistriesMap)
 			})
 		}
 		if err := errgrp.Wait(); err != nil {
@@ -424,7 +425,7 @@ func (c *Cluster) runServicePortChecks(ctx context.Context) error {
 	for _, host := range c.ControlPlaneHosts {
 		runHost := host
 		errgrp.Go(func() error {
-			return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages[AplineImage])
+			return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages.Alpine, c.PrivateRegistriesMap)
 		})
 	}
 	if err := errgrp.Wait(); err != nil {
@@ -434,7 +435,7 @@ func (c *Cluster) runServicePortChecks(ctx context.Context) error {
 	for _, host := range c.WorkerHosts {
 		runHost := host
 		errgrp.Go(func() error {
-			return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages[AplineImage])
+			return checkPlaneTCPPortsFromHost(ctx, runHost, etcdPortList, c.EtcdHosts, c.SystemImages.Alpine, c.PrivateRegistriesMap)
 		})
 	}
 	if err := errgrp.Wait(); err != nil {
@@ -448,7 +449,7 @@ func (c *Cluster) runServicePortChecks(ctx context.Context) error {
 	for _, host := range c.ControlPlaneHosts {
 		runHost := host
 		errgrp.Go(func() error {
-			return checkPlaneTCPPortsFromHost(ctx, runHost, workerPortList, c.WorkerHosts, c.SystemImages[AplineImage])
+			return checkPlaneTCPPortsFromHost(ctx, runHost, workerPortList, c.WorkerHosts, c.SystemImages.Alpine, c.PrivateRegistriesMap)
 		})
 	}
 	if err := errgrp.Wait(); err != nil {
@@ -462,13 +463,13 @@ func (c *Cluster) runServicePortChecks(ctx context.Context) error {
 	for _, host := range c.WorkerHosts {
 		runHost := host
 		errgrp.Go(func() error {
-			return checkPlaneTCPPortsFromHost(ctx, runHost, controlPlanePortList, c.ControlPlaneHosts, c.SystemImages[AplineImage])
+			return checkPlaneTCPPortsFromHost(ctx, runHost, controlPlanePortList, c.ControlPlaneHosts, c.SystemImages.Alpine, c.PrivateRegistriesMap)
 		})
 	}
 	return errgrp.Wait()
 }
 
-func checkPlaneTCPPortsFromHost(ctx context.Context, host *hosts.Host, portList []string, planeHosts []*hosts.Host, image string) error {
+func checkPlaneTCPPortsFromHost(ctx context.Context, host *hosts.Host, portList []string, planeHosts []*hosts.Host, image string, prsMap map[string]v3.PrivateRegistry) error {
 	hosts := []string{}
 	for _, host := range planeHosts {
 		hosts = append(hosts, host.InternalAddress)
@@ -486,10 +487,13 @@ func checkPlaneTCPPortsFromHost(ctx context.Context, host *hosts.Host, portList 
 			"for host in $HOSTS; do for port in $PORTS ; do nc -z $host $port > /dev/null || echo $host $port ; done; done",
 		},
 	}
+	hostCfg := &container.HostConfig{
+		NetworkMode: "host",
+	}
 	if err := docker.DoRemoveContainer(ctx, host.DClient, PortCheckContainer, host.Address); err != nil {
 		return err
 	}
-	if err := docker.DoRunContainer(ctx, host.DClient, imageCfg, nil, PortCheckContainer, host.Address, "network"); err != nil {
+	if err := docker.DoRunContainer(ctx, host.DClient, imageCfg, hostCfg, PortCheckContainer, host.Address, "network", prsMap); err != nil {
 		return err
 	}
 	if err := docker.WaitForContainer(ctx, host.DClient, PortCheckContainer); err != nil {
@@ -509,7 +513,7 @@ func checkPlaneTCPPortsFromHost(ctx context.Context, host *hosts.Host, portList 
 	}
 	if len(portCheckLogs) > 0 {
 
-		return fmt.Errorf("[netwok] Port check for ports: [%s] failed on host: [%s]", strings.Join(portCheckLogs, ", "), host.Address)
+		return fmt.Errorf("[network] Port check for ports: [%s] failed on host: [%s]", strings.Join(portCheckLogs, ", "), host.Address)
 
 	}
 	return nil
