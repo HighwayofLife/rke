@@ -41,7 +41,7 @@ func buildKubeletConfig(host *hosts.Host, kubeletService v3.KubeletService, unsc
 			"--cni-bin-dir=/opt/cni/bin",
 			"--resolv-conf=/etc/resolv.conf",
 			"--allow-privileged=true",
-			"--cloud-provider=",
+			"--cloud-provider=azure",
 			"--kubeconfig=" + pki.GetConfigPath(pki.KubeNodeCertName),
 			"--volume-plugin-dir=/var/lib/kubelet/volumeplugins",
 			"--require-kubeconfig=True",
