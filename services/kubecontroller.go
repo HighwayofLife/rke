@@ -29,7 +29,7 @@ func buildKubeControllerConfig(kubeControllerService v3.KubeControllerService, a
 		Entrypoint: []string{"/opt/rke/entrypoint.sh",
 			"kube-controller-manager",
 			"--address=0.0.0.0",
-			"--cloud-provider=",
+			"--cloud-provider=azure",
 			"--leader-elect=true",
 			"--kubeconfig=" + pki.GetConfigPath(pki.KubeControllerCertName),
 			"--enable-hostpath-provisioner=false",

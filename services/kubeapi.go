@@ -33,7 +33,7 @@ func buildKubeAPIConfig(host *hosts.Host, kubeAPIService v3.KubeAPIService, etcd
 			"--bind-address=0.0.0.0",
 			"--insecure-port=0",
 			"--secure-port=6443",
-			"--cloud-provider=",
+			"--cloud-provider=azure",
 			"--allow_privileged=true",
 			"--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
 			"--service-cluster-ip-range=" + kubeAPIService.ServiceClusterIPRange,
