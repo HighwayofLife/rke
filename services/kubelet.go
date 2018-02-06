@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/rancher/rke/docker"
@@ -45,6 +46,7 @@ func buildKubeletConfig(host *hosts.Host, kubeletService v3.KubeletService) (*co
 			"--kubeconfig=" + pki.GetConfigPath(pki.KubeNodeCertName),
 			"--volume-plugin-dir=/var/lib/kubelet/volumeplugins",
 			"--require-kubeconfig=True",
+			"--fail-swap-on=" + strconv.FormatBool(kubeletService.FailSwapOn),
 		},
 	}
 	hostCfg := &container.HostConfig{
