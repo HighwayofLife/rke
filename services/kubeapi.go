@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/rancher/rke/docker"
@@ -70,20 +69,8 @@ func buildKubeAPIConfig(host *hosts.Host, kubeAPIService v3.KubeAPIService, etcd
 	}
 
 	for arg, value := range kubeAPIService.ExtraArgs {
-		found := false
-		newarg := fmt.Sprintf("--%s", arg)
 		cmd := fmt.Sprintf("--%s=%s", arg, value)
-		argCount := len(imageCfg.Entrypoint)
-		for i := 0; i < argCount; i++ {
-			if strings.HasPrefix([i]imageCfg.Entrypoint, newarg) {
-				found := true
-				// replace with new argument specification
-				[i]imageCfg.Entrypoint := cmd
-			}
-		}
-		if not found {
-			imageCfg.Entrypoint = append(imageCfg.Entrypoint, cmd)
-		}
+		imageCfg.Entrypoint = append(imageCfg.Entrypoint, cmd)
 	}
 	return imageCfg, hostCfg
 }
